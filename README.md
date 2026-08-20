@@ -1,57 +1,95 @@
-# DNA-Based-Semantic-Search
+# DNA-Based Semantic Search
 
-![PyTorch](https://img.shields.io/badge/PyTorch-2.6%2B-ee4c2c.svg?style=flat-square&logo=pytorch)
-![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)
-![Status](https://img.shields.io/badge/Status-Publication_Ready-success.svg?style=flat-square)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c?style=flat-square&logo=pytorch)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square&logo=python)
+![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Publication_Ready-success?style=flat-square)
 
-> **The Biophysical Information Bottleneck:** Thermodynamically Constrained Representation Learning for Semantic DNA Similarity Search
+**ChemiSearch: Differentiable Biophysical Representation Learning for DNA-Based Semantic Search**
 
-This repository contains the official, mathematically rigorous, and 100% physically constrained pipeline for translating high-dimensional Natural Language Processing (NLP) semantics directly into physical DNA sequences. 
+A fully differentiable framework that maps natural language semantics directly into physically constrained DNA oligonucleotide sequences, enabling content-addressable molecular information retrieval via thermodynamic hybridisation.
 
-Designed for **DNA-based Data Storage** and **In-Memory Molecular Search**, this framework allows querying text databases using highly parallelized thermodynamic hybridization instead of traditional computational hashing.
+---
 
-## 🧬 Overview
+## Overview
 
-Current DNA storage solutions act as "cold archives." Retrieving specific information requires sequencing everything. We propose a paradigm shift: **Content-addressable molecular search**.
+Current DNA storage systems operate as cold archives. Retrieving specific information requires sequencing the entire pool. This work proposes a paradigm shift: **content-addressable molecular search**.
 
-By mapping continuous semantic geometry into discrete thermodynamic constraints, information retrieval is executed passively via molecular annealing at O(1) time complexity.
+By learning to encode the continuous geometry of sentence embeddings into discrete DNA sequences whose thermodynamic affinity mirrors semantic similarity, information retrieval can be executed via molecular annealing at O(1) time complexity.
 
-### Features
-* **Differentiable Thermodynamics:** An end-to-end differentiable thermodynamic surrogate evaluating DNA hybridization affinity.
-* **Q1-Grade Biophysical Rigor:** 
-  * Enforces exact SantaLucia nearest-neighbor parameters.
-  * Models high-stringency hybridization (75°C / 348.15K) to eliminate non-specific binding.
-  * Implements a 4x4 sequence-dependent wobble/mismatch penalty matrix.
-  * Penalizes intra-molecular secondary structures (hairpins).
-* **Zero-Shot Generalization:** Retains >80% semantic information (Spearman ρ) on unseen medical datasets (BIOSSES) despite extreme physical limitations.
+## Scientific Contributions
 
-## 🚀 Quick Start
+- End-to-end differentiable text-to-DNA encoder (Gumbel-Softmax relaxation)
+- Fully vectorised SantaLucia nearest-neighbour thermodynamic surrogate (75 degrees C, 348.15 K)
+- Sequence-dependent 4x4 wobble/mismatch penalty matrix
+- Hairpin / secondary-structure penalty via self-complementarity dot product
+- Rigorous ablation study, bootstrapped confidence intervals, and multi-benchmark zero-shot evaluation
 
-The entire pipeline is wrapped in a single, highly modular Jupyter Notebook ready for Kaggle, Colab, or local execution.
+## Results
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/labonysur-cloud/DNA-Based-Semantic-Search.git
-   cd DNA-Based-Semantic-Search
-   ```
+| Method | STS-B Spearman rho |
+|---|---|
+| Float32 Teacher (upper bound) | 0.820 |
+| LSH Hashing 256-bit | 0.796 |
+| Binary Quantisation | 0.809 |
+| Random DNA (lower bound) | ~0.02 |
+| **ChemiSearch (Ours)** | **see notebook** |
 
-2. **Install dependencies:**
-   ```bash
-   pip install torch sentence-transformers datasets matplotlib seaborn scipy scikit-learn
-   ```
+Zero-shot evaluation: BIOSSES biomedical benchmark (no biomedical training data used).
 
-3. **Run the pipeline:**
-   Open `DNA_Based_Semantic_Search.ipynb` in your preferred IDE (Jupyter, VSCode, Kaggle) and execute the cells. The notebook will automatically download standard NLP datasets, encode them, train the surrogate, and output all publication-ready visualizations into a `./figures` directory.
+## Quickstart
 
-## 📊 Benchmarks & Visualization
+```bash
+git clone https://github.com/labonysur-cloud/DNA-Based-Semantic-Search.git
+cd DNA-Based-Semantic-Search
+pip install -r requirements.txt
+jupyter notebook DNA_Based_Semantic_Search.ipynb
+```
 
-The notebook systematically reproduces all critical plots required for scientific validation:
-- **Baseline Comparisons:** Benchmarks against Binary Quantization and Locality Sensitive Hashing (LSH).
-- **Biological Viability:** Verifies GC content and melting temperatures ($T_m$).
-- **Mutation Robustness:** Evaluates semantic preservation under simulated sequencing/synthesis errors.
+Run all cells in order. Embeddings are cached after the first run; the pipeline auto-resumes after any kernel restart.
 
-## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+## Notebook Structure
 
-## 📚 Citation
-*(Citation details will be updated upon publication)*
+| Cell | Description |
+|---|---|
+| 1 | Environment setup and seed locking |
+| 2 | Data acquisition (STS-B, AllNLI, BIOSSES) |
+| 3 | Teacher embedding extraction and persistent caching |
+| 4 | Model architecture and thermodynamic surrogate |
+| 5 | Training loop (AdamW, cosine LR, early stopping) |
+| 6 | Figure 3: Zero-shot generalisation scatter plots |
+| 7 | Figure 2: Baseline comparison bar chart |
+| 8 | Figure 4: GC content distribution and mutation robustness |
+| 9 | Figure 5: Ablation study |
+| 10 | Molecular case study |
+| 11 | Summary results tables and export |
+
+## Requirements
+
+See `requirements.txt`. Tested on Python 3.10, PyTorch 2.0+, CUDA 11.8+.
+
+## Physical Model
+
+The thermodynamic surrogate computes:
+
+```
+delta_G(i, i+1) = delta_H(i, i+1) - T * delta_S(i, i+1) / 1000
+```
+
+using SantaLucia (1998) nearest-neighbour parameters at T = 348.15 K (75 degrees C).
+All physical constants are registered as non-trainable buffers. Only the
+ResidualMLPEncoder (~790K parameters) has learnable weights.
+
+## Limitations
+
+- Sequences are evaluated in silico only; wet-lab validation is left as future work.
+- Fixed sequence length of 128 bp; variable-length encoding is not yet supported.
+- The Gumbel-Softmax relaxation introduces a train/eval distribution gap that grows at low temperatures.
+
+## License
+
+MIT License. See LICENSE file.
+
+## Citation
+
+Citation information will be added upon publication.
