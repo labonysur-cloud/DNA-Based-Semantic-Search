@@ -1,0 +1,13 @@
+# Cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Models and Data
+*.pt
+*.pth
+models/
+data/
+
+# OS
+.DS_Store
