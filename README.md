@@ -65,9 +65,9 @@ This notebook is optimized for execution on **Kaggle** (GPU T4x2 or P100).
 ## 📜 Citation
 *(Paper under preparation for Q1 Journal Submission)*
 ```bibtex
-@article{sarker2026chemisearch,
+@article{sur2026chemisearch,
   title={A Computational Framework for Mapping Natural Language Semantics to DNA Hybridization Thermodynamics},
-  author={Sarker, Aupurba and ...},
+  author={Sur,Labony},
   journal={In Preparation},
   year={2026}
 }
