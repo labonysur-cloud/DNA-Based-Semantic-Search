@@ -2,6 +2,11 @@
 Biophysical Model of CRISPR-SpCas9 Off-Target Cleavage Kinetics.
 Implements position-dependent mismatch tolerance (CFD / Hsu profile)
 serving as Stage 1 coarse molecular candidate generation.
+NOTE: This is a Cas9-inspired sequence compatibility surrogate, not a faithful implementation of Doench et al. (2016) CFD.
+- The position weights are synthetic heuristic values, not empirical CFD lookup values
+- The mismatch matrix uses a simplified factored model instead of the full positionxMismatch-type CFD table
+- The PAM parameter exists but is not used anywhere in the pipeline
+- The scoring function uses exponential decay of weighted sums rather than the multiplicative CFD model
 """
 
 from typing import Tuple, List, Dict, Optional
@@ -25,6 +30,7 @@ class Cas9CleavagePredictor(nn.Module):
     """
     Differentiable biophysical surrogate for Cas9 off-target cleavage efficiency.
     Calculates cleavage probability P_cleave in [0, 1] between 20-nt guide RNA and target protospacer.
+    NOTE: This is a Cas9-inspired sequence compatibility surrogate.
     """
 
     def __init__(

@@ -117,6 +117,12 @@ class SantaLuciaDuplexModel(nn.Module):
         step_dS = torch.einsum("blij,ij->bl", step1, self.dS_matrix)
 
         # 4. Accumulated doublet stacking enthalpy and entropy from matched base pairs
+        # NOTE: For soft (probabilistic) DNA from Gumbel-Softmax, the product
+        # step_dH * p_doublet introduces a mathematical approximation: strand-1
+        # nucleotide probabilities appear in both terms, effectively weighting
+        # contributions by p^2 rather than p. This is exact for hard one-hot
+        # DNA (p \u2208 {0,1}) and is an upper-bound approximation for soft DNA.
+        # A rigorous treatment would compute E[dH * I(WC)] jointly.
         raw_dH = (step_dH * p_doublet).sum(dim=-1)
         raw_dS = (step_dS * p_doublet).sum(dim=-1)
         corr_dS = self.salt_corrected_dS(raw_dS, L - 1)
@@ -182,7 +188,7 @@ class SantaLuciaDuplexModel(nn.Module):
 
         return np.array(temp_c_range), np.array(thetas)
 
-    def estimate_hairpin_stability(self, dna: torch.Tensor) -> torch.Tensor:
+    def estimate_hairpin_stability(self, dna: torch.Tensor, temp_k: float = 310.15) -> torch.Tensor:
         """
         Differentiable sliding-window intramolecular hairpin stability estimator.
         Evaluates SantaLucia (1998) doublet nearest-neighbor stacking thermodynamics along
@@ -199,7 +205,7 @@ class SantaLuciaDuplexModel(nn.Module):
                 span = 2 * stem_len + loop_len
                 if span > L:
                     continue
-                for i in range(0, L - span + 1, 2):
+                for i in range(0, L - span + 1):
                     stem1 = dna[:, i : i + stem_len]
                     stem2 = dna[:, i + stem_len + loop_len : i + span]
                     stem2_rev = torch.flip(stem2, dims=[1])
@@ -210,7 +216,7 @@ class SantaLuciaDuplexModel(nn.Module):
                     step_stem = torch.einsum("bki,bkj->bkij", stem1[:, :-1], stem1[:, 1:])
                     dH_stem = (torch.einsum("bkij,ij->bk", step_stem, self.dH_matrix) * p_doublet).sum(dim=-1)
                     dS_stem = (torch.einsum("bkij,ij->bk", step_stem, self.dS_matrix) * p_doublet).sum(dim=-1)
-                    dG_stem = dH_stem - 310.15 * (dS_stem / 1000.0)
+                    dG_stem = dH_stem - temp_k * (dS_stem / 1000.0)
 
                     # Jacobson-Stockmayer entropic loop penalty (SantaLucia 1998)
                     loop_penalty = 3.5 + 0.8 * float(np.log(loop_len))

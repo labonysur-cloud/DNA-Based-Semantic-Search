@@ -136,7 +136,7 @@ class DualChannelDNAEncoder(nn.Module):
         logits_conf = self.head_conf(h).view(-1, self.conf_len, 4)
         conf_score = self.conf_scalar_head(h)
 
-        if not deterministic and self.training:
+        if not deterministic:
             # Straight-Through Gumbel-Softmax relaxation
             dna_sem = F.gumbel_softmax(logits_sem, tau=tau, hard=hard, dim=-1)
             dna_conf = F.gumbel_softmax(logits_conf, tau=tau, hard=hard, dim=-1)
@@ -199,16 +199,15 @@ class DualChannelDNAEncoder(nn.Module):
             "calibrated_confidence": final_conf,
         }
 
-    @staticmethod
-    def to_query_probe(dna_sem: torch.Tensor) -> torch.Tensor:
+    def to_query_probe(self, dna_sem: torch.Tensor) -> torch.Tensor:
         """
         Transforms encoded target sequence into the complementary query probe:
-          - Cas9 guide segment (first 20 bp): guide sequence targeting the protospacer
+          - Cas9 guide segment (first cas9_len bp): guide sequence targeting the protospacer
           - Hybridization duplex probe (last 80 bp): antiparallel Watson-Crick complement
             (5'->3' reverse-complement so position k opposes target position (L-1-k))
         """
-        cas9_part = dna_sem[:, :20]
-        hyb_part = dna_sem[:, 20:]
+        cas9_part = dna_sem[:, :self.cas9_len]
+        hyb_part = dna_sem[:, self.cas9_len:]
         # Watson-Crick complement: A(0)->T(3), C(1)->G(2), G(2)->C(1), T(3)->A(0)
         hyb_wc = hyb_part[:, :, [3, 2, 1, 0]]
         # Antiparallel alignment: reverse along length

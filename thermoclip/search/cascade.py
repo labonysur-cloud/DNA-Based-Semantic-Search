@@ -142,6 +142,15 @@ class DualChemistryCascadeRetriever:
             }
 
         elif mode == "cascade":
+            import warnings
+            if top_k_final > top_k_coarse:
+                warnings.warn(
+                    f"top_k_final ({top_k_final}) exceeds top_k_coarse ({top_k_coarse}). "
+                    f"Cascade mode can return at most top_k_coarse={top_k_coarse} candidates. "
+                    f"Consider increasing top_k_coarse or reducing top_k_final for fair evaluation.",
+                    UserWarning,
+                    stacklevel=2
+                )
             # STAGE 1: Cas9 Coarse Candidate Generation
             coarse_k = min(top_k_coarse, N)
             with torch.no_grad():
@@ -151,9 +160,7 @@ class DualChemistryCascadeRetriever:
 
             # STAGE 2: Thermodynamic Hybridization Fine Reranking on Candidates
             cand_lib_hyb = lib_hyb[candidate_idx]
-            cand_lib_full = library_dna[candidate_idx]
             q_hyb_exp = q_hyb.expand(coarse_k, -1, -1)
-            q_sem_exp = q_probe.expand(coarse_k, -1, -1)
 
             with torch.no_grad():
                 thermo_res = self.thermo.compute_duplex_thermodynamics(

@@ -1,6 +1,6 @@
 """
-ThermoCLIP-DNA: Comprehensive In-Silico Scientific Benchmark Pipeline.
-Executes and validates:
+ThermoCLIP-DNA: In-Silico Computational Experiment Pipeline.
+Executes and evaluates (all results are computational simulations, not experimental validation):
   1. System Architecture Diagram (Figure 1)
   2. Multi-Domain Semantic Benchmark Loading & Dense Embeddings
   3. Straight-Through Gumbel-Softmax Dual-Channel Encoder & Biophysical Surrogates
@@ -80,11 +80,11 @@ def get_or_create_benchmark_data() -> Dict[str, List]:
                 return corpus
 
     from scratch.build_corpus import build_authentic_corpus
-    print("  [+] Generating authentic multi-domain benchmark corpora (no duplicates)...")
+    print("  [+] Generating multi-domain benchmark corpora (no duplicates)...")
     corpus = build_authentic_corpus()
     with open(cache_path, "w", encoding="utf-8") as f:
         json.dump(corpus, f, indent=2)
-    print("  [+] Authentic benchmark data saved to cache.")
+    print("  [+] Benchmark data saved to cache.")
     return corpus
 
 
@@ -108,7 +108,7 @@ def main():
         train_e1, train_e2, t_scores = data["train_e1"], data["train_e2"], data["t_scores"]
         test_e1, test_e2 = data["test_e1"], data["test_e2"]
         biomed_embs, cross_embs, noise_embs = data["biomed_embs"], data["cross_embs"], data["noise_embs"]
-        print("  [+] Loaded verified embeddings from data/embeddings_cache.pt")
+        print("  [+] Loaded cached embeddings from data/embeddings_cache.pt")
     else:
         print("  [+] Computing sentence embeddings via all-MiniLM-L6-v2...")
         from sentence_transformers import SentenceTransformer
@@ -212,8 +212,9 @@ def main():
         test_d1_probe = encoder.to_query_probe(test_d1)
 
     pool_features = active_calibrator.extract_biophysical_features(test_d1_probe, test_d2)
-    true_measurements = assay_sim.measure_assay_yield(test_d1_probe, test_d2, add_noise=True)["measured_physical_yield"]
+    simulated_measurements = assay_sim.measure_assay_yield(test_d1_probe, test_d2, add_noise=True)[\"simulated_physical_yield\"]
 
+    torch.manual_seed(42)  # Seed for reproducible active learning ensemble initialization
     budgets = [10, 15, 20, 25]
     ece_bald_list, ece_rand_list = [], []
     recall_bald_list, recall_rand_list = [], []
@@ -222,23 +223,23 @@ def main():
         # Strategy A: Active BALD
         calib_bald = ActiveLabCalibrator(assay_sim, device=device, ensemble_size=4)
         active_idx = calib_bald.select_active_assays(pool_features, budget=b, strategy="bald")
-        calib_bald.update_calibration(pool_features[active_idx], true_measurements[active_idx], epochs=25)
+        calib_bald.update_calibration(pool_features[active_idx], simulated_measurements[active_idx], epochs=25)
         pred_bald, _ = calib_bald.predict_ensemble(pool_features)
-        ece_b = expected_calibration_error(pred_bald.cpu().numpy(), true_measurements.cpu().numpy())
+        ece_b = expected_calibration_error(pred_bald.cpu().numpy(), simulated_measurements.cpu().numpy())
         ece_bald_list.append(ece_b)
 
-        top_k_gt = np.argsort(true_measurements.cpu().numpy())[-int(0.25 * len(true_measurements)):]
-        top_k_pred = np.argsort(pred_bald.cpu().numpy())[-int(0.25 * len(true_measurements)):]
+        top_k_gt = np.argsort(simulated_measurements.cpu().numpy())[-int(0.25 * len(simulated_measurements)):]
+        top_k_pred = np.argsort(pred_bald.cpu().numpy())[-int(0.25 * len(simulated_measurements)):]
         recall_bald_list.append(len(set(top_k_gt).intersection(top_k_pred)) / float(len(top_k_gt)))
 
         # Strategy B: Passive Random
         calib_rand = ActiveLabCalibrator(assay_sim, device=device, ensemble_size=4)
         rand_idx = calib_rand.select_active_assays(pool_features, budget=b, strategy="random")
-        calib_rand.update_calibration(pool_features[rand_idx], true_measurements[rand_idx], epochs=25)
+        calib_rand.update_calibration(pool_features[rand_idx], simulated_measurements[rand_idx], epochs=25)
         pred_rand, _ = calib_rand.predict_ensemble(pool_features)
-        ece_r = expected_calibration_error(pred_rand.cpu().numpy(), true_measurements.cpu().numpy())
+        ece_r = expected_calibration_error(pred_rand.cpu().numpy(), simulated_measurements.cpu().numpy())
         ece_rand_list.append(ece_r)
-        top_k_pred_r = np.argsort(pred_rand.cpu().numpy())[-int(0.25 * len(true_measurements)):]
+        top_k_pred_r = np.argsort(pred_rand.cpu().numpy())[-int(0.25 * len(simulated_measurements)):]
         recall_rand_list.append(len(set(top_k_gt).intersection(top_k_pred_r)) / float(len(top_k_gt)))
 
     print("  [+] Active Learning Results:")
@@ -246,8 +247,8 @@ def main():
 
     initial_calibrator = ActiveLabCalibrator(assay_sim, device=device, ensemble_size=4)
     pred_uncal, _ = initial_calibrator.predict_ensemble(pool_features)
-    rel_uncal_dict = compute_reliability_diagram_data(pred_uncal.cpu().numpy(), true_measurements.cpu().numpy(), n_bins=10)
-    rel_cal_dict = compute_reliability_diagram_data(pred_bald.cpu().numpy(), true_measurements.cpu().numpy(), n_bins=10)
+    rel_uncal_dict = compute_reliability_diagram_data(pred_uncal.cpu().numpy(), simulated_measurements.cpu().numpy(), n_bins=10)
+    rel_cal_dict = compute_reliability_diagram_data(pred_bald.cpu().numpy(), simulated_measurements.cpu().numpy(), n_bins=10)
 
     plot_active_learning_calibration(
         budgets, ece_bald_list, ece_rand_list, recall_bald_list, recall_rand_list,
@@ -268,12 +269,19 @@ def main():
     ood_metrics = compute_ood_auroc(uncert_in, ood_all)
     print(f"  [+] In-Domain vs OOD/Adversarial Abstention AUROC: {ood_metrics['AUROC']:.4f}, AUPR: {ood_metrics['AUPR']:.4f}")
 
+    # Per-domain OOD separation (avoids hiding domain-specific performance)
+    ood_biomed = compute_ood_auroc(uncert_in, uncert_biomed)
+    ood_cross = compute_ood_auroc(uncert_in, uncert_cross)
+    ood_noise = compute_ood_auroc(uncert_in, uncert_noise)
+    print(f"  [+] Per-domain AUROC — Biomedical: {ood_biomed['AUROC']:.4f} | Cross-Lingual: {ood_cross['AUROC']:.4f} | Adversarial: {ood_noise['AUROC']:.4f}")
+
     y_true = np.concatenate([np.ones_like(uncert_in), np.zeros_like(ood_all)])
     y_scores = np.concatenate([uncert_in, ood_all])
     fpr_vals, tpr_vals, _ = roc_curve(y_true, y_scores)
 
-    test_errors = (1.0 - torch.tensor([p[2] for p in corpus["test"]]).numpy()).clip(0.0, 1.0)
-    risk_cov_dict = compute_risk_coverage_curve(uncert_in, test_errors, num_points=20)
+    # Semantic dissimilarity (1 - normalized_similarity) used as proxy retrieval error
+    test_dissimilarity = (1.0 - torch.tensor([p[2] for p in corpus["test"]]).numpy()).clip(0.0, 1.0)
+    risk_cov_dict = compute_risk_coverage_curve(uncert_in, test_dissimilarity, num_points=20)
     cov_vals = risk_cov_dict.get("coverage", risk_cov_dict.get("coverages", np.linspace(0.1, 1.0, 20)))
     risk_vals = risk_cov_dict.get("risk", risk_cov_dict.get("risks", np.linspace(0.2, 0.1, 20)))
 
@@ -288,6 +296,9 @@ def main():
     # 7. Dual-Chemistry Molecular Cascade Benchmark
     print("\n[Step 7/7] Benchmarking Dual-Chemistry Cascade vs Single Chemistry...")
     num_test_queries = 20
+    # WARNING: Library includes train_e2 targets that the encoder was trained on.
+    # This constitutes data leakage and inflates retrieval metrics.
+    # TODO: Use a held-out distractor set for unbiased evaluation.
     lib_embs = torch.cat([test_e2[:num_test_queries], train_e2[:80]], dim=0)
     lib_size = lib_embs.size(0)
 
@@ -302,7 +313,7 @@ def main():
         device=device,
     )
 
-    k_vals = [1, 5, 10, 20, 50]
+    k_vals = [1, 5, 10, 20, 40]  # max k must not exceed top_k_coarse for fair cascade evaluation
     recalls = {"Cascade (Ours)": [], "Cas9-Only": [], "Hybridization-Only": []}
     ndcgs = {"Cascade (Ours)": [], "Cas9-Only": [], "Hybridization-Only": []}
 
@@ -349,9 +360,14 @@ def main():
 
     for p_size in pool_sizes:
         sub_lib = synth_lib[:p_size]
-        iters = 5
+        warmup_iters = 3
+        iters = 30  # Increased from 5 for statistical reliability
 
         # Cascade
+        for _ in range(warmup_iters):
+            c_scores = cas9_model(sq_cas.expand(p_size, -1, -1), sub_lib[:, :20])
+            _, top_idx = torch.topk(c_scores, min(40, p_size))
+            _ = thermo_model.compute_duplex_thermodynamics(sq_hyb.expand(len(top_idx), -1, -1), sub_lib[top_idx, 20:])
         t0 = time.perf_counter()
         for _ in range(iters):
             c_scores = cas9_model(sq_cas.expand(p_size, -1, -1), sub_lib[:, :20])
@@ -360,12 +376,16 @@ def main():
         times_ms["Cascade (Ours)"].append(((time.perf_counter() - t0) / iters) * 1000.0)
 
         # Cas9-Only
+        for _ in range(warmup_iters):
+            _ = cas9_model(sq_cas.expand(p_size, -1, -1), sub_lib[:, :20])
         t0 = time.perf_counter()
         for _ in range(iters):
             _ = cas9_model(sq_cas.expand(p_size, -1, -1), sub_lib[:, :20])
         times_ms["Cas9-Only"].append(((time.perf_counter() - t0) / iters) * 1000.0)
 
         # Hyb-Only
+        for _ in range(warmup_iters):
+            _ = thermo_model.compute_duplex_thermodynamics(sq_hyb.expand(p_size, -1, -1), sub_lib[:, 20:])
         t0 = time.perf_counter()
         for _ in range(iters):
             _ = thermo_model.compute_duplex_thermodynamics(sq_hyb.expand(p_size, -1, -1), sub_lib[:, 20:])
@@ -410,7 +430,8 @@ def main():
     viability_res = evaluate_sequence_viability(sample_seqs)
 
     gc_fractions = np.array([(s.count("G") + s.count("C")) / len(s) for s in sample_seqs])
-    hp_counts = np.array([sum(s.count(b * 3) for b in "ACGT") for s in sample_seqs])
+    import re
+    hp_counts = np.array([max((len(m.group()) for m in re.finditer(r'(.)\1*', s)), default=0) for s in sample_seqs])
     with torch.no_grad():
         hairpin_mfes = thermo_model.estimate_hairpin_stability(lib_dna_sem[:, 20:]).cpu().numpy()
 

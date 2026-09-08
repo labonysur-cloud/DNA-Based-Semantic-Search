@@ -49,10 +49,15 @@ class ActiveLabCalibrator:
         assay_simulator: WetLabAssaySimulator,
         device: Optional[torch.device] = None,
         ensemble_size: int = 5,
+        seed: Optional[int] = None,
     ):
         self.assay_sim = assay_simulator
         self.device = device or torch.device("cpu")
         self.ensemble_size = ensemble_size
+
+        # Seed ensemble initialization for reproducibility
+        if seed is not None:
+            torch.manual_seed(seed)
 
         # Ensemble of adapters for epistemic uncertainty estimation over physical yield
         self.ensemble = [

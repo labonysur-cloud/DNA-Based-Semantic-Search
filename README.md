@@ -34,15 +34,18 @@ The ThermoCLIP-DNA pipeline operates across four coordinated stages:
 
 ## 📊 Comprehensive Experimental Benchmarks
 
+> [!WARNING]
+> **All experiments in this section are conducted in computational simulation.** No experimental wet-lab data is used. Reported metrics represent in-silico surrogate evaluations. See [Limitations & Scope](#limitations--scope) for the full claim hierarchy.
+
 ### 1. Dual-Chemistry Cascade vs Single-Chemistry Baselines (Library $N=100$)
 
 | Search Mode | Candidate Pool ($K$) | Recall@10 | Recall@20 | NDCG@10 | Wall-Clock Latency ($N=1000$) |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Cascade (Ours: Cas9 $\to$ Hyb)** | **40 (Filtered)** | **0.500** | **0.650** | **0.223** | **1.71 ms (1.99x Speedup)** |
+| **Cascade (Ours: Cas9 $\to$ Hyb)** | **40 (Filtered)** | **0.500** | **0.650** | **0.223** | 1.71 ms (1.99× vs Hyb-Only, synthetic benchmark) |
 | **Cas9-Only** (Single Chemistry) | $N$ (Full Pool) | 0.400 | 0.750 | 0.239 | 0.65 ms |
 | **Hybridization-Only** (Single Chemistry) | $N$ (Full Pool) | 0.350 | 0.700 | 0.170 | 3.40 ms |
 
-> **Dual-Chemistry Synergy & Latency Speedup:** Coarse candidate filtering via Cas9 reduces the candidate pool from $N=100$ to $K=40$ (a 2.5x reduction factor). At $N=1000$, Cascade achieves a **1.99x speedup** over full thermodynamic hybridization while simultaneously improving Recall@10 (0.500 vs 0.350) and NDCG@10 (0.223 vs 0.170).
+> **In-Silico Cascade Evaluation Note:** The cascade reduces the candidate pool from $N=100$ to $K=40$ (2.5× reduction), trading retrieval accuracy for computational efficiency. At $N=1000$, the cascade achieves a 1.99× latency reduction over full hybridization (measured on synthetic tensors, 5 iterations, no confidence intervals). However, Cas9-Only achieves higher Recall and NDCG at most k-values. The cascade provides competitive intermediate-rank retrieval while reducing the thermodynamic computation budget, but does not demonstrate superior retrieval performance overall.
 
 ---
 
@@ -69,18 +72,18 @@ The ThermoCLIP-DNA pipeline operates across four coordinated stages:
 | 20 Assays | 0.1688 | 0.1574 | Intermediate calibration |
 | **25 Assays** | **0.1497** | **0.0903** | Assessed on noisy simulated assay yield |
 
-> **In-Silico Biophysical Simulation Note:** Assays are simulated using `WetLabAssaySimulator` incorporating Hill saturation kinetics, Poisson optical noise, and oligonucleotide synthesis infidelity. Physical bench validation (microplate fluorometry) represents planned future wet-lab experimental work.
+> **In-Silico Simulation Note:** All assays are simulated using `WetLabAssaySimulator` with Hill saturation kinetics and Poisson optical noise. BALD performance is inconsistent across budgets and does not reliably outperform random selection at the largest evaluated budget (B=25). This may be due to the small pool size (N=30) and unseeded ensemble initialization. Physical bench validation represents planned future work.
 
 ---
 
-### 4. Oligonucleotide Biophysical Synthesis Viability
+### 4. In-Silico Sequence Design Quality Heuristics
 
 | Viability Parameter | ThermoCLIP-DNA | Biological Constraint Target | Status |
 |---|:---:|:---:|:---:|
-| **GC-Content in 40–60% Window** | **100.0%** | $\ge 85\%$ of library | **PASSED** |
-| **Mean GC Percentage** | **49.29% $\pm$ 1.79%** | $50.0\% \pm 5.0\%$ | **PASSED** |
+| **GC-Content in 40–60% Window** | **100.0%** | $\ge 85\%$ of library | **In-silico ✓** |
+| **Mean GC Percentage** | **49.29% $\pm$ 1.79%** | $50.0\% \pm 5.0\%$ | **In-silico ✓** |
 | **Homopolymer Run Free (<3 bp)** | **7.0%** | Consecutive identical 3-mers penalized | **Tracked** |
-| **Hairpin Free Energy ($\Delta G_{\text{hairpin}}$)** | **$-1.25 \pm 1.65$ kcal/mol** | Continuous nearest-neighbor stacking distribution | **PASSED** |
+| **Hairpin Free Energy ($\Delta G_{\text{hairpin}}$)** | **$-1.25 \pm 1.65$ kcal/mol** | Continuous nearest-neighbor stacking distribution | **In-silico ✓** |
 
 ---
 
@@ -117,6 +120,42 @@ python run_experiments.py
 
 ### 4. Interactive Jupyter Notebook
 Open `DNA_Based_Semantic_Search.ipynb` locally or upload to Kaggle/Google Colab for step-by-step interactive execution and visualization.
+
+---
+
+## ⚠️ Limitations & Scope
+
+This repository is a **computational research prototype**. The scientific claim hierarchy is:
+
+### ✅ Actually Demonstrated
+- A neural encoder can map text embeddings to structured DNA-like representations
+- The representations can be scored using computational Cas9-inspired and thermodynamic surrogate functions
+- A dual-chemistry cascade can be implemented computationally
+- OOD confidence separation can be measured computationally
+- Sequence design heuristics (GC content, homopolymer runs) can be evaluated
+
+### ⚠️ Partially Demonstrated (Needs Further Rigor)
+- Retrieval improvement over single-chemistry baselines (cascade does not uniformly outperform)
+- Active-learning calibration improvement (BALD does not reliably outperform random)
+- Epistemic uncertainty estimation quality
+- Thermodynamic semantic discrimination
+
+### ❌ Not Demonstrated (Requires Wet-Lab Experiments)
+- Real molecular retrieval in aqueous solution
+- Real CRISPR-Cas9 cleavage on encoded sequences
+- Real DNA duplex hybridization
+- Real hairpin-mediated physical abstention
+- Real assay calibration with microplate fluorometry
+- Real oligonucleotide synthesis success
+- Biological functionality or clinical utility
+
+### Known Technical Limitations
+- **Train/test contamination:** Some sentence overlap exists between training and test splits
+- **Small benchmarks:** Retrieval evaluated on 100 candidates with 20 queries; active learning on 30 pairs
+- **No validation set:** No train/validation/test model selection protocol
+- **Simplified biophysics:** Cas9 model is a surrogate (not faithful CFD); SantaLucia implementation uses approximations for soft DNA
+- **No statistical significance:** All metrics are point estimates without confidence intervals
+- **Synthetic latency benchmark:** Timing measured on random tensors, not actual encoded libraries
 
 ---
 

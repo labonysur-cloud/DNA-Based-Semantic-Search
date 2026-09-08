@@ -106,6 +106,7 @@ class MolecularAbstentionGate(nn.Module):
         Coverage = fraction of non-abstained queries.
         """
         thresholds = np.linspace(0.0, 1.0, num_thresholds)
+        used_thresholds = []
         coverages = []
         risks = []
 
@@ -113,13 +114,14 @@ class MolecularAbstentionGate(nn.Module):
             active = confidences >= tau
             if active.sum() == 0:
                 continue
+            used_thresholds.append(tau)
             cov = float(active.mean())
             risk = float(retrieval_errors[active].mean())
             coverages.append(cov)
             risks.append(risk)
 
         return {
-            "thresholds": np.array(thresholds[:len(coverages)]),
+            "thresholds": np.array(used_thresholds),
             "coverage": np.array(coverages),
             "risk": np.array(risks),
         }

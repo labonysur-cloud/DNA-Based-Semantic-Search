@@ -129,10 +129,10 @@ class TestThermoCLIPDNA(unittest.TestCase):
         t = dna_to_onehot("ACGT" * 25).unsqueeze(0)
 
         res = self.assay_sim.measure_assay_yield(q, t, add_noise=True)
-        self.assertIn("measured_physical_yield", res)
-        self.assertIn("optical_rfu", res)
-        self.assertTrue(0.0 <= res["measured_physical_yield"].item() <= 1.0)
-        self.assertGreater(res["optical_rfu"].item(), 0.0)
+        self.assertIn("simulated_physical_yield", res)
+        self.assertIn("simulated_optical_rfu", res)
+        self.assertTrue(0.0 <= res["simulated_physical_yield"].item() <= 1.0)
+        self.assertGreater(res["simulated_optical_rfu"].item(), 0.0)
 
     def test_molecular_abstention_gate(self):
         """Test selective abstention and clamp hairpin synthesis."""

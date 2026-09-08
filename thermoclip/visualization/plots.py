@@ -179,17 +179,20 @@ def plot_active_learning_calibration(
     ax = axes[1]
     ax.plot(budgets, recall_bald, "o-", color="#2a9d8f", lw=2.4, ms=8, label="Active Selection (BALD)")
     ax.plot(budgets, recall_random, "s--", color="#e76f51", lw=2.0, ms=7, label="Passive Random Selection")
-    ax.set_title("(b) Semantic Recall@5 vs Assay Budget", fontsize=13, fontweight="bold", pad=12)
+    ax.set_title("(b) Top-Quartile Yield Overlap vs Assay Budget", fontsize=13, fontweight="bold", pad=12)
     ax.set_xlabel("Simulated Assay Budget (N Pairs)", fontsize=11)
-    ax.set_ylabel("Recall@5", fontsize=11)
+    ax.set_ylabel("Top-25% Yield Overlap", fontsize=11)
     ax.grid(True)
     ax.legend(frameon=True)
 
     # Panel C: Reliability Diagram (Calibration Curve)
     ax = axes[2]
     ax.plot([0, 1], [0, 1], "k--", lw=1.5, label="Perfect Calibration")
-    ax.plot(rel_bins, rel_uncal, "x:", color="#e63946", lw=1.8, ms=7, label="Uncalibrated Biophysical Model")
-    ax.plot(rel_bins, rel_cal, "o-", color="#2a9d8f", lw=2.2, ms=7, label="Actively Calibrated (Ours)")
+    # Filter out NaN values from empty bins
+    valid_uncal = ~np.isnan(rel_uncal)
+    valid_cal = ~np.isnan(rel_cal)
+    ax.plot(rel_bins[valid_uncal], rel_uncal[valid_uncal], "x:", color="#e63946", lw=1.8, ms=7, label="Uncalibrated Biophysical Model")
+    ax.plot(rel_bins[valid_cal], rel_cal[valid_cal], "o-", color="#2a9d8f", lw=2.2, ms=7, label="Actively Calibrated (Ours)")
     ax.set_title("(c) Empirical Reliability Diagram", fontsize=13, fontweight="bold", pad=12)
     ax.set_xlabel("Predicted Biophysical Yield", fontsize=11)
     ax.set_ylabel("Ground-Truth Simulated Yield", fontsize=11)
@@ -227,8 +230,8 @@ def plot_abstention_and_ood(
     # Panel A: Confidence Score Distributions across Domains
     ax = axes[0]
     sns.kdeplot(conf_in_domain, ax=ax, label="In-Domain (STS-B)", color="#2a9d8f", fill=True, alpha=0.35, lw=2.0, warn_singular=False)
-    sns.kdeplot(conf_biosses, ax=ax, label="Biomedical (BIOSSES)", color="#e76f51", fill=True, alpha=0.25, lw=1.8, warn_singular=False)
-    sns.kdeplot(conf_cross_lingual, ax=ax, label="Cross-Lingual (STS17)", color="#f4a261", fill=True, alpha=0.25, lw=1.8, warn_singular=False)
+    sns.kdeplot(conf_biosses, ax=ax, label="Biomedical (OOD)", color="#e76f51", fill=True, alpha=0.25, lw=1.8, warn_singular=False)
+    sns.kdeplot(conf_cross_lingual, ax=ax, label="Cross-Lingual (OOD)", color="#f4a261", fill=True, alpha=0.25, lw=1.8, warn_singular=False)
     sns.kdeplot(conf_noise, ax=ax, label="Adversarial / Random", color="#d62828", fill=True, alpha=0.25, lw=1.8, warn_singular=False)
     ax.axvline(0.55, color="#333", linestyle="--", lw=1.5, label="Abstention Cutoff (tau=0.55)")
     ax.set_title("(a) Molecular Confidence by Domain", fontsize=13, fontweight="bold", pad=12)

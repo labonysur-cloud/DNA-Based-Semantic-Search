@@ -11,6 +11,7 @@ Implements:
 from typing import Dict, List, Tuple, Union, Optional
 import numpy as np
 from sklearn.metrics import roc_auc_score, average_precision_score
+import re
 
 
 def recall_at_k(retrieved_indices: List[int], ground_truth_indices: List[int], k: int) -> float:
@@ -105,7 +106,7 @@ def evaluate_sequence_viability(sequences: List[str]) -> Dict[str, float]:
     """
     Evaluates physical sequence synthesis viability:
       - GC content window (fraction within 40-60%)
-      - Homopolymer runs (fraction with no run >= 3)
+      - Homopolymer runs (fraction with no run >= 5)
       - Mean homopolymer run length
     """
     n = len(sequences)
@@ -115,6 +116,7 @@ def evaluate_sequence_viability(sequences: List[str]) -> Dict[str, float]:
     gc_valid_count = 0
     hp_free_count = 0
     gc_vals = []
+    max_runs = []
 
     for seq in sequences:
         s = seq.upper()
@@ -123,9 +125,10 @@ def evaluate_sequence_viability(sequences: List[str]) -> Dict[str, float]:
         if 0.40 <= gc <= 0.60:
             gc_valid_count += 1
 
-        # Check homopolymer runs of 3+ consecutive bases (AAA, CCC, GGG, TTT)
-        has_hp = any(base * 3 in s for base in ["A", "C", "G", "T"])
-        if not has_hp:
+        # Check homopolymer runs: find maximum consecutive identical bases
+        max_run = max((len(m.group()) for m in re.finditer(r'(.)\1*', s)), default=0)
+        max_runs.append(max_run)
+        if max_run < 5:  # Biologically realistic: runs < 5 are acceptable for synthesis
             hp_free_count += 1
 
     return {
@@ -133,6 +136,7 @@ def evaluate_sequence_viability(sequences: List[str]) -> Dict[str, float]:
         "homopolymer_free_pct": (hp_free_count / n) * 100.0,
         "mean_gc": float(np.mean(gc_vals)) * 100.0,
         "std_gc": float(np.std(gc_vals)) * 100.0,
+        "mean_max_homopolymer_run": float(np.mean(max_runs)),
     }
 
 
@@ -166,8 +170,8 @@ def compute_reliability_diagram_data(
             bin_accuracies.append(float(np.mean(true_labels[in_bin])))
             bin_confidences.append(float(np.mean(predicted_probs[in_bin])))
         else:
-            bin_accuracies.append(center)
-            bin_confidences.append(center)
+            bin_accuracies.append(np.nan)
+            bin_confidences.append(np.nan)
 
     return {
         "bin_centers": np.array(bin_centers),

@@ -20,8 +20,8 @@ from thermoclip.biophysics.cas9 import Cas9CleavagePredictor
 class WetLabAssaySimulator:
     """
     Simulates physical wet-lab assay measurements with realistic non-linearities,
-    optical noise, and biophysical kinetics. Used as the ground-truth wet-lab
-    measurement environment for Active Learning calibration.
+    optical noise, and biophysical kinetics. Used as the simulated wet-lab measurement environment (in-silico surrogate)
+    for Active Learning calibration.
     """
 
     def __init__(
@@ -93,7 +93,7 @@ class WetLabAssaySimulator:
         # 3. Steric / secondary structure attenuation
         hairpin_q = self.thermo_model.estimate_hairpin_stability(q_hyb)
         hairpin_t = self.thermo_model.estimate_hairpin_stability(t_hyb)
-        steric_factor = torch.exp(-0.03 * (hairpin_q + hairpin_t))
+        steric_factor = torch.exp(0.03 * (hairpin_q + hairpin_t))
         effective_fraction = torch.clamp(ideal_fraction * steric_factor, 0.0, 1.0)
 
         # 4. Optical fluorophore non-linear response (Hill kinetics)
@@ -101,7 +101,7 @@ class WetLabAssaySimulator:
         rfu = self.f_bg + self.f_max * (hill_pow / (0.35 ** self.hill_coeff + hill_pow + 1e-8))
 
         # 5. Combined Dual-Chemistry Yield:
-        # Cleaved fraction * hybridized fluorescence fraction
+        # Weighted linear combination of Cas9 cleavage and hybridized fluorescence fraction
         combined_yield = torch.clamp(0.4 * cleave_prob + 0.6 * (rfu / self.f_max), 0.0, 1.0)
 
         # 6. Experimental noise injection (Poisson shot noise + Gaussian detector jitter)
@@ -119,6 +119,6 @@ class WetLabAssaySimulator:
             "cleavage_probability": cleave_prob,
             "hybridization_affinity": thermo_res["affinity"],
             "fraction_bound": effective_fraction,
-            "optical_rfu": measured_rfu,
-            "measured_physical_yield": measured_yield,
+            "simulated_optical_rfu": measured_rfu,
+            "simulated_physical_yield": measured_yield,
         }
